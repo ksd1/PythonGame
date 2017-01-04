@@ -9,7 +9,8 @@ import copy
 
 SCREEN_RECT = Rect(0, 0, 1024, 768)
 SHIP_ROTATION = 0.6
-MAX_METEORS_COUNT = 1
+MAX_METEORS_COUNT = 15
+SHOOT_SLOW_DOWN = 100
 
 
 def rot_center(image, angle):
@@ -93,6 +94,10 @@ def main():
     screen = pygame.display.set_mode([1024,768])
     background = pygame.Surface(screen.get_size())
     background.fill((255, 255, 255))
+    font = pygame.font.SysFont("monospace", 30)
+
+    #score
+    score = 0
 
     #set shit
     ship = pygame.image.load("../assets/ship.png")
@@ -104,14 +109,15 @@ def main():
     #set bullets
     bullets_list = []
     bullets_list_copy = []
+    shoot_slow_down_counter = 0
 
     #set meteors
     meteor_slowdown_counter = 10
-    meteors_counter = MAX_METEORS_COUNT
+    meteors_counter = 0
     meteors_list = []
     meteor_list_copy = []
-    for i in xrange(0, MAX_METEORS_COUNT):
-        meteors_list.insert(-1, get_new_meteor())
+    not_collided_meteors = []
+
 
     while True:
         keys = key.get_pressed()
@@ -128,8 +134,10 @@ def main():
             calc_move_backward(shipPos, shipAngle, 1)
             back_position_to_screen(shipPos, SCREEN_RECT)
         if keys[K_SPACE]:
-            pos_copy = copy.copy(shipPos)
-            bullets_list.insert(-1, get_new_bullet(pos_copy, shipAngle))
+            if shoot_slow_down_counter == 0:
+                pos_copy = copy.copy(shipPos)
+                bullets_list.insert(-1, get_new_bullet(pos_copy, shipAngle))
+                shoot_slow_down_counter = SHOOT_SLOW_DOWN
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -156,7 +164,7 @@ def main():
             off_x = bullet_pos[0] - old_x
             off_y = bullet_pos[1] - old_y
 
-            print "OFF_X: ", off_x, " OFF_Y: ", off_y
+            #print "OFF_X: ", off_x, " OFF_Y: ", off_y
 
             if not is_out_of_screen(bullet_pos, SCREEN_RECT):
                 bullet_rect = bullet[1].move(off_x, ceil(off_y))
@@ -164,6 +172,14 @@ def main():
 
         bullets_list = bullets_list_copy
         bullets_list_copy = []
+
+        if shoot_slow_down_counter:
+            shoot_slow_down_counter -= 1
+
+        #creare meteors if the is need
+        for i in xrange(meteors_counter, MAX_METEORS_COUNT):
+            meteors_list.insert(-1, get_new_meteor())
+        meteors_counter = MAX_METEORS_COUNT
 
         #move meteors
         if meteor_slowdown_counter < 0:
@@ -202,16 +218,22 @@ def main():
         if ship_collision:
             break;
 
-        not_collided_meteors = []
-        #check collision bullets with meteors
-        if bullets_list:
-            for bullet in bullets_list:
-                for meteor in meteors_list:
-                    if not bullet[1].colliderect(meteor[1]):
-                        not_collided_meteors.insert(-1, meteor)
 
-            meteors_list = not_collided_meteors
-            not_collided_meteors = []
+        #check collision bullets with meteors
+        for meteor in meteors_list:
+            collide = False
+            for bullet in bullets_list:
+                if bullet[1].colliderect(meteor[1]):
+                    collide = True;
+
+            if not collide:
+                not_collided_meteors.insert(-1, meteor)
+            else:
+                score += 10
+                meteors_counter -= 1
+
+        meteors_list = not_collided_meteors
+        not_collided_meteors = []
 
         #blit all objects
         screen.blit(background, (0, 0))
@@ -223,9 +245,10 @@ def main():
         for meteor in meteors_list:
             screen.blit(meteor[0], meteor[1])
 
+        score_label = font.render("Score: " + str(score), 1, (0, 0, 0))
+        screen.blit(score_label, (SCREEN_RECT[0]+10, SCREEN_RECT[3]-40))
+
         pygame.display.update()
-
-
 
 
 main()
